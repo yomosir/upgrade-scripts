@@ -126,7 +126,7 @@ func envConfGenerate(client *ssh.Client, upgradeInfo []UpgradeInfo) error {
 		paramVersionMap[paramName] = oneInfo.imageTag
 	}
 	newContent := doParamUpdate(client, paramVersionMap, content)
-	writeCmd := fmt.Sprintf("echo %s > %s", newContent, filePath)
+	writeCmd := fmt.Sprintf("echo '%s' > %s", newContent, filePath)
 	_, err = execCmd(client, writeCmd)
 	if err != nil {
 		return fmt.Errorf("write env file error: %v", err)
@@ -195,17 +195,17 @@ func backupEnvFile(client *ssh.Client) error {
 		fmt.Errorf("执行判断环境变量失败: %v", err)
 		return nil
 	}
-	if "exists" == result {
-		fmt.Printf("备份文件夹已经存在，%s", dir)
+	if "exists\n" == result {
+		fmt.Printf("备份文件夹已经存在，%s \n", dir)
 		return nil
 	}
 	// 备份
-	command := fmt.Sprintf("mkdir -p %s&&cp /root/.docker/.env %s&&cp /root/.docker/docker-compose.yaml %s", dir, dir, dir)
+	command := fmt.Sprintf("mkdir -p %s&&cp /root/.docker/.env %s&&cp /root/.docker/docker-compose.yml %s", dir, dir, dir)
 	err = session.Run(command)
 	if err != nil {
 		return fmt.Errorf("执行备份命令失败, %v", err)
 	} else {
-		fmt.Printf("执行备份成功.....，命令：%s", command)
+		fmt.Printf("执行备份成功.....，命令：%s \n", command)
 	}
 	return nil
 }
@@ -281,12 +281,12 @@ func doServerProcess(config ServerConfig, upgradeInfoMap map[string]UpgradeInfo)
 func dockerComposeUpgrade(client *ssh.Client, upgradeInfo []UpgradeInfo) error {
 	// 执行升级命令
 	for _, info := range upgradeInfo {
-		command := fmt.Sprintf("docker-compose -f /root/.docker/docker-compose.yaml up -d --no-deps %s", info.serviceName)
+		command := fmt.Sprintf("docker-compose -f /root/.docker/docker-compose.yml up -d --no-deps %s \n", info.serviceName)
 		_, err := execCmd(client, command)
 		if err != nil {
-			return fmt.Errorf("执行升级命令失败: %v", err)
+			return fmt.Errorf("执行升级命令失败: %v \n", err)
 		} else {
-			fmt.Printf("执行升级成功，命令：%s", command)
+			fmt.Printf("执行升级成功，命令：%s \n", command)
 		}
 	}
 	return nil
@@ -318,11 +318,12 @@ func doCompare(client *ssh.Client, upgradeInfoMap map[string]UpgradeInfo) []Upgr
 	var result []UpgradeInfo
 	for _, image := range images {
 		imageInfoArr := strings.Split(image, ":")
-		fmt.Printf("镜像名称：%s, 当前镜像版本：%s   ", imageInfoArr[0], imageInfoArr[1])
+		fmt.Printf("当前镜像及版本：%s ", image)
 		if value, exists := upgradeInfoMap[imageInfoArr[0]]; exists {
-			fmt.Printf("需要执行升级，升级的版本：%s \n", value.imageTag)
+			fmt.Printf("需要执行升级，升级的版本：%s", value.imageTag)
 			result = append(result, value)
 		}
+		fmt.Print("\n")
 	}
 	return result
 }

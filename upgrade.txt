@@ -1,2 +1,1 @@
-energycloud-modules-auth:V1.14.2
-energycloud-gateway:V1.14.3
+dockerhub.kubekey.local/energycloud/energycloud-modules-system:dev-V1.14-96
