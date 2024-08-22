@@ -52,12 +52,15 @@ func readUpgradeList() map[string]UpgradeInfo {
 	for scanner.Scan() {
 		line := scanner.Text()
 		imageInfoArr := strings.Split(line, ":")
-		oneUpradeImage := UpgradeInfo{
-			imageName: imageInfoArr[0],
-			imageTag:  imageInfoArr[1],
+		imageNameArr := strings.Split(imageInfoArr[0], "/")
+		length := len(imageInfoArr)
+		oneUpgradeImage := UpgradeInfo{
+			imageName:   imageInfoArr[0],
+			imageTag:    imageInfoArr[1],
+			serviceName: imageNameArr[length-1],
 		}
-		fmt.Printf("Upgrade info, imageName : %s, imageTag : %s \n", oneUpradeImage.imageName, oneUpradeImage.imageTag)
-		upgradeMap[oneUpradeImage.imageName] = oneUpradeImage
+		fmt.Printf("Upgrade info, imageName : %s, imageTag : %s \n", oneUpgradeImage.imageName, oneUpgradeImage.imageTag)
+		upgradeMap[oneUpgradeImage.imageName] = oneUpgradeImage
 	}
 	return upgradeMap
 }
