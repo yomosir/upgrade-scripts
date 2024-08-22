@@ -53,7 +53,7 @@ func readUpgradeList() map[string]UpgradeInfo {
 		line := scanner.Text()
 		imageInfoArr := strings.Split(line, ":")
 		imageNameArr := strings.Split(imageInfoArr[0], "/")
-		length := len(imageInfoArr)
+		length := len(imageNameArr)
 		oneUpgradeImage := UpgradeInfo{
 			imageName:   imageInfoArr[0],
 			imageTag:    imageInfoArr[1],
@@ -90,6 +90,7 @@ func readServerList() []ServerConfig {
 
 // 执行升级，遍历服务器，读取每台服务器列表，与升级服务镜像列表比较，如果匹配，则进行镜像拉取，docker-compose执行up -d 升级
 func doUpgrade(serverList []ServerConfig, upgradeInfoMap map[string]UpgradeInfo) {
+	fmt.Printf(">>>>>>>>>> 开始升级 <<<<<<<<<<\n")
 	for _, config := range serverList {
 		doServerProcess(config, upgradeInfoMap)
 		fmt.Printf(">>>>>>>>>> %s 升级完成 <<<<<<<<<<\n", config.ServerIP)
@@ -111,6 +112,7 @@ func envConfGenerate(client *ssh.Client, upgradeInfo []UpgradeInfo) error {
 	if err != nil {
 		return fmt.Errorf("backup env file error: %v", err)
 	}
+	fmt.Println("备份环境变量文件成功, 开始写入新环境变量文件.....")
 	// 生成新的.env文件
 	filePath := "/root/.docker/.env"
 	readCmd := fmt.Sprintf("cat %s", filePath)
@@ -120,6 +122,7 @@ func envConfGenerate(client *ssh.Client, upgradeInfo []UpgradeInfo) error {
 		imageNameInfoArr := strings.Split(oneInfo.imageName, "/")
 		serverName := imageNameInfoArr[len(imageNameInfoArr)-1]
 		paramName := fmt.Sprintf("%s_version", strings.ReplaceAll(serverName, "-", "_"))
+		fmt.Printf("paramName: %s, imageTag: %s \n", paramName, oneInfo.imageTag)
 		paramVersionMap[paramName] = oneInfo.imageTag
 	}
 	newContent := doParamUpdate(client, paramVersionMap, content)
@@ -173,6 +176,7 @@ func doParamUpdate(client *ssh.Client, paramVersionMap map[string]string, conten
 		// 如果更新的镜像中存在，那么则变更数组中该条配置
 		if exists {
 			lines[i] = fmt.Sprintf("%s=%s", lineInfo[0], value)
+			fmt.Printf("参数 %s 已更新为 %s, 该行最新为: %s \n", lineInfo[0], value, lines[i])
 		}
 	}
 	return strings.Join(lines, "\n")
@@ -250,12 +254,14 @@ func doServerProcess(config ServerConfig, upgradeInfoMap map[string]UpgradeInfo)
 	}
 	defer client.Close()
 	// 将服务器上当前的运行容器的镜像与升级列表中进行对比，如果有的话则记录下来，后面进行升级
+	fmt.Println("开始对比镜像列表")
 	matchedUpdateInfo := doCompare(client, upgradeInfoMap)
 	if nil == matchedUpdateInfo || 0 == len(matchedUpdateInfo) {
 		// 如果匹配结果为空数组，则退出
 		fmt.Println("当前服务器无需要升级节点跳过")
 		return
 	}
+	fmt.Println("开始备份环境变量文件")
 	// 修改环境变量文件
 	err = envConfGenerate(client, matchedUpdateInfo)
 	if err != nil {
@@ -312,7 +318,9 @@ func doCompare(client *ssh.Client, upgradeInfoMap map[string]UpgradeInfo) []Upgr
 	var result []UpgradeInfo
 	for _, image := range images {
 		imageInfoArr := strings.Split(image, ":")
+		fmt.Printf("镜像名称：%s, 当前镜像版本：%s   ", imageInfoArr[0], imageInfoArr[1])
 		if value, exists := upgradeInfoMap[imageInfoArr[0]]; exists {
+			fmt.Printf("需要执行升级，升级的版本：%s \n", value.imageTag)
 			result = append(result, value)
 		}
 	}
