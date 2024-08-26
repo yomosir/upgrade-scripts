@@ -3,7 +3,9 @@ server:
     server-port: 22
     username: root
     password: aaaaa
+    image-load: y
   - server-ip: 172.20.83.17
     server-port: 22
     username: root
     password: aaaaa
+    image-load: n

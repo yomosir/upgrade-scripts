@@ -18,6 +18,7 @@ type ServerConfig struct {
 	ServerPort string `yaml:"server-port"`
 	Username   string `yaml:"username"`
 	Password   string `yaml:"password"`
+	ImageLoad  string `yaml:"image-load"`
 }
 
 // Config 定义了整个 YAML 文件的结构
@@ -32,12 +33,74 @@ type UpgradeInfo struct {
 }
 
 func main() {
+
+	args := os.Args[1:]
+	if len(args) == 0 {
+		fmt.Println("请输入参数: upgrade(升级), load [文件名](加载&推送镜像)")
+	}
 	// 读取镜像列表文件
 	upgradeMap := readUpgradeList()
 	// 读取服务列表
 	serverList := readServerList()
-	// 执行升级
-	doUpgrade(serverList, upgradeMap)
+	if args[0] == "upgrade" {
+		// 执行升级
+		doUpgrade(serverList, upgradeMap)
+	} else if args[0] == "load" {
+		fileName := args[1]
+		if fileName == "" {
+			fmt.Println("请输入完整文件名")
+		} else {
+			var config = ServerConfig{}
+			for _, serverConf := range serverList {
+				if serverConf.ImageLoad == "y" {
+					config = serverConf
+				}
+			}
+			if config.ImageLoad != "y" {
+				fmt.Println("没有配置镜像加载服务器")
+			}
+			// 加载镜像
+			loadImage(fileName, config, upgradeMap)
+		}
+	}
+
+}
+
+func loadImage(filename string, config ServerConfig, upgradeInfo map[string]UpgradeInfo) {
+	// 配置 SSH 客户端
+	clientConfig := &ssh.ClientConfig{
+		User: config.Username,
+		Auth: []ssh.AuthMethod{
+			ssh.Password(config.Password),
+		},
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+	}
+
+	// 连接到 SSH 服务器
+	client, err := ssh.Dial("tcp", config.ServerIP+":"+config.ServerPort, clientConfig)
+	if err != nil {
+		fmt.Errorf("无法连接到 SSH 服务器: %v", err)
+	}
+	defer client.Close()
+	// load 镜像文件到服务器上
+	fmt.Printf(">>>>>>>>>> 开始加载镜像 <<<<<<<<<<\n")
+	loadCmd := fmt.Sprintf("docker load -i %s", filename)
+	_, err = execCmd(client, loadCmd)
+	if err != nil {
+		fmt.Printf("load image error: %v \n", err)
+	}
+	fmt.Printf(">>>>>>>>>> 镜像加载完成 <<<<<<<<<<\n")
+	// 推送镜像到harbor仓库中
+	fmt.Printf(">>>>>>>>>> 开始推送镜像 <<<<<<<<<<\n")
+	for _, value := range upgradeInfo {
+		fullImageInfo := fmt.Sprintf("%s:%s", value.imageName, value.imageTag)
+		pushCmd := fmt.Sprintf("docker push %s", fullImageInfo)
+		_, err = execCmd(client, pushCmd)
+		if err != nil {
+			fmt.Printf("push image error: %v \n", err)
+		}
+	}
+	fmt.Printf(">>>>>>>>>> 镜像推送完成 <<<<<<<<<<\n")
 }
 
 // 读取升级镜像列表
@@ -151,6 +214,7 @@ func execCmd(client *ssh.Client, command string) (string, error) {
 	defer session.Close()
 	var output bytes.Buffer
 	session.Stdout = &output
+	fmt.Printf("执行命令 command : [%s] \n", command)
 	if err := session.Run(command); err != nil {
 		return "", fmt.Errorf("无法执行命令: %v", err)
 	}
