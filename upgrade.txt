@@ -1,1 +1,1 @@
-dockerhub.kubekey.local/energycloud/energycloud-modules-system:dev-V1.14-96
+xxxxxx/xxxxx/xxxx:dev-V1.14-96
